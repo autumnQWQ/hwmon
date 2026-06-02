@@ -1,6 +1,6 @@
 [package]
 name = "hwmon"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "极简 Windows 硬件监控工具 — CPU/GPU 频率/利用率/温度"
 
@@ -24,4 +24,7 @@ windows = { version = "0.58", features = [
     "Win32_System_Performance",
 ] }
 winreg = "0.52"
+
+[build-dependencies]
+winresource = "0.1.31"
 

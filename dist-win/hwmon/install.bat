@@ -1,56 +1,119 @@
 @echo off
 setlocal enabledelayedexpansion
-title hwmon v1.0 Installer
-chcp 65001 >/dev/null 2>&1
+title hwmon Installer
+chcp 65001 >nul 2>&1
 
 echo.
 echo ==========================================
-echo   hwmon v1.0 — Hardware Monitor
+echo   hwmon - PC Hardware Monitor Installer
 echo ==========================================
 echo.
 
-set "INSTALL_DIR=%USERPROFILE%\hwmon"
+REM ---- Check admin ----
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [INFO] User install mode - no admin privileges
+    set "INSTALL_DIR=%USERPROFILE%\hwmon"
+) else (
+    echo [INFO] Admin mode - system-wide install
+    set "INSTALL_DIR=%ProgramFiles%\hwmon"
+)
 
+REM ---- Find hwmon.exe ----
+set "SRC=%~dp0hwmon.exe"
+if not exist "%SRC%" set "SRC=%~dp0..\hwmon.exe"
+if not exist "%SRC%" set "SRC=hwmon.exe"
+
+if not exist "%SRC%" (
+    echo [ERROR] Cannot find hwmon.exe
+    echo.
+    echo   This package contains source code only - you need to build first.
+    echo   Run build.bat to compile hwmon.exe automatically.
+    echo   Or see README.md for manual build instructions.
+    echo.
+    if exist "%~dp0build.bat" (
+        echo   build.bat found — starting build now...
+        pause
+        call "%~dp0build.bat"
+        if exist "%~dp0hwmon.exe" set "SRC=%~dp0hwmon.exe"
+        if not exist "%SRC%" exit /b 1
+    ) else (
+        pause
+        exit /b 1
+    )
+)
+echo [ OK ] Found: %SRC%
+echo.
+
+REM ---- Install ----
 echo [INFO] Installing to: %INSTALL_DIR%
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
-
-REM ---- Copy binary ----
-copy /Y "%~dp0hwmon.exe" "%INSTALL_DIR%\hwmon.exe" >/dev/null 2>&1
-if errorlevel 1 ( echo [ERROR] Copy failed & pause & exit /b 1 )
-echo [ OK ] hwmon.exe copied
-
-REM ---- Copy Electron app ----
-if exist "%~dp0hwmon-electron" (
-    xcopy /E /I /Y "%~dp0hwmon-electron" "%INSTALL_DIR%\hwmon-electron\" >/dev/null 2>&1
-    echo [ OK ] Electron app copied
-    
-    REM ---- Install Electron dependencies ----
-    echo [INFO] Installing Electron dependencies (npm install)...
-    cd "%INSTALL_DIR%\hwmon-electron"
-    call npm install --production >/dev/null 2>&1
-    if errorlevel 1 (
-        echo [WARN] npm install failed. Run manually:
-        echo   cd %INSTALL_DIR%\hwmon-electron ^&^& npm install
-    ) else (
-        echo [ OK ] Electron dependencies installed
-    )
-) else (
-    echo [WARN] hwmon-electron/ not found, skipping
+if not exist "%INSTALL_DIR%" (
+    echo [ERROR] Cannot create install directory
+    echo        Try running as Administrator
+    pause
+    exit /b 1
 )
 
-REM ---- Desktop shortcut ----
+copy /Y "%SRC%" "%INSTALL_DIR%\hwmon.exe" >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Copy failed - check permissions
+    pause
+    exit /b 1
+)
+echo [ OK ] Binary copied
+echo.
+
+REM ---- Add to PATH safely ----
+echo [INFO] Configuring PATH...
+set "PATH_FILE=%INSTALL_DIR%\add-to-path.reg"
+(
+echo Windows Registry Editor Version 5.00
+echo.
+echo [HKEY_CURRENT_USER\Environment]
+echo "Path"="%INSTALL_DIR%;%PATH%"
+) > "%PATH_FILE%"
+echo [ OK ] PATH registry file created: %PATH_FILE%
+echo        To add to PATH immediately, double-click add-to-path.reg
+echo        Or restart your terminal for the change to take effect.
+echo.
+
+REM ---- Create desktop shortcut ----
+echo [INFO] Creating desktop shortcut...
 set "DESKTOP=%USERPROFILE%\Desktop"
 if not exist "%DESKTOP%" set "DESKTOP=%USERPROFILE%\桌面"
-if exist "%DESKTOP%" (
-    set "PS_CMD=$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%DESKTOP%\hwmon.lnk');$s.TargetPath='%INSTALL_DIR%\hwmon.exe';$s.Arguments='--gui';$s.WorkingDirectory='%INSTALL_DIR%';$s.Description='hwmon - Hardware Monitor';$s.Save()"
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "!PS_CMD!" >/dev/null 2>&1 && echo [ OK ] Desktop shortcut created
+if not exist "%DESKTOP%" (
+    echo [WARN] Desktop folder not found, skipping shortcut
+    goto :skip_shortcut
 )
 
+set "SHORTCUT=%DESKTOP%\hwmon.lnk"
+set "PS_CMD=$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%SHORTCUT%'); $Shortcut.TargetPath = '%INSTALL_DIR%\hwmon.exe'; $Shortcut.WorkingDirectory = '%INSTALL_DIR%'; $Shortcut.Description = 'hwmon - Hardware Monitor'; $Shortcut.Save()"
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "%PS_CMD%" >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] Shortcut creation failed - you can create it manually
+) else (
+    echo [ OK ] Desktop shortcut: hwmon.lnk
+)
+
+:skip_shortcut
 echo.
+
+REM ---- Done ----
 echo ==========================================
 echo   Installation complete!
 echo ==========================================
 echo.
-echo   Run:  %%INSTALL_DIR%%\hwmon.exe --gui
+echo   Run from terminal:
+echo     %INSTALL_DIR%\hwmon.exe
+echo     %INSTALL_DIR%\hwmon.exe --watch
+echo     %INSTALL_DIR%\hwmon.exe --json
 echo.
-pause
+echo   Or double-click hwmon.exe in:
+echo     %INSTALL_DIR%
+echo.
+
+echo Closing in 3 seconds...
+timeout /t 3 /nobreak >nul
+exit /b 0

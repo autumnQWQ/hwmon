@@ -52,18 +52,39 @@ fn collect_json() -> String {
 }
 
 fn find_app_dir() -> Option<std::path::PathBuf> {
-    let p = std::path::PathBuf::from("F:\\hwmon\\hwmon-electron");
-    if p.join("main.js").exists() { return Some(p); }
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let candidates = [
+        exe_dir.join("hwmon-electron"),
+        std::path::PathBuf::from("hwmon-electron"),
+    ];
+    for p in &candidates {
+        if p.join("main.js").exists() {
+            return Some(p.clone());
+        }
+    }
+    None
+}
+
+/// 找到 Electron 可执行文件所在目录。
+/// 优先使用 bundled electron/ (打包分发)，回退到 node_modules (开发环境)。
+fn find_electron(app_dir: &std::path::Path) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+    // 打包分发: hwmon-electron/electron/electron.exe
+    let bundled_exe = app_dir.join("electron").join("electron.exe");
+    if bundled_exe.exists() {
+        return Some((bundled_exe, app_dir.join("electron")));
+    }
+    // 开发环境: node_modules/electron/dist/electron.exe
+    let nm_exe = app_dir.join("node_modules").join("electron").join("dist").join("electron.exe");
+    if nm_exe.exists() {
+        return Some((nm_exe, app_dir.join("node_modules").join("electron").join("dist")));
+    }
     None
 }
 
 #[cfg(windows)]
 fn launch_electron() -> Option<std::process::Child> {
     let app_dir = find_app_dir()?;
-    let exe = app_dir.join("node_modules").join("electron").join("dist").join("electron.exe");
-    if !exe.exists() { return None; }
-
-    let dist = app_dir.join("node_modules").join("electron").join("dist");
+    let (exe, dist) = find_electron(&app_dir)?;
     std::process::Command::new(exe)
         .current_dir(&dist)
         .creation_flags(0x08000000)

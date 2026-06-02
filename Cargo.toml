@@ -1,6 +1,6 @@
 [package]
 name = "hwmon"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "极简 Windows 硬件监控工具 — CPU/GPU 频率/利用率/温度"
 

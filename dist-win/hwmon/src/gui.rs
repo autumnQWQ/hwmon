@@ -3,6 +3,7 @@
 
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(windows)] use std::os::windows::process::CommandExt;
 
 static LOCKED: AtomicBool = AtomicBool::new(true);
 
@@ -51,28 +52,50 @@ fn collect_json() -> String {
 }
 
 fn find_app_dir() -> Option<std::path::PathBuf> {
-    let p = std::path::PathBuf::from("F:\\hwmon\\hwmon-electron");
-    if p.join("main.js").exists() { return Some(p); }
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let candidates = [
+        exe_dir.join("hwmon-electron"),
+        std::path::PathBuf::from("hwmon-electron"),
+    ];
+    for p in &candidates {
+        if p.join("main.js").exists() {
+            return Some(p.clone());
+        }
+    }
     None
 }
 
-fn launch_electron() -> bool {
-    let app_dir = match find_app_dir() { Some(d) => d, None => return false };
-    let exe = app_dir.join("node_modules").join("electron").join("dist").join("electron.exe");
-    if !exe.exists() { return false; }
-
-    let dist = app_dir.join("node_modules").join("electron").join("dist");
-    std::thread::spawn(move || {
-        use std::os::windows::process::CommandExt;
-        let _ = std::process::Command::new(exe)
-            .current_dir(&dist)
-            .creation_flags(0x08000000)
-            .arg("--no-sandbox")
-            .arg(app_dir.join("main.js"))
-            .spawn();
-    });
-    true
+/// 找到 Electron 可执行文件所在目录。
+/// 优先使用 bundled electron/ (打包分发)，回退到 node_modules (开发环境)。
+fn find_electron(app_dir: &std::path::Path) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+    // 打包分发: hwmon-electron/electron/electron.exe
+    let bundled_exe = app_dir.join("electron").join("electron.exe");
+    if bundled_exe.exists() {
+        return Some((bundled_exe, app_dir.join("electron")));
+    }
+    // 开发环境: node_modules/electron/dist/electron.exe
+    let nm_exe = app_dir.join("node_modules").join("electron").join("dist").join("electron.exe");
+    if nm_exe.exists() {
+        return Some((nm_exe, app_dir.join("node_modules").join("electron").join("dist")));
+    }
+    None
 }
+
+#[cfg(windows)]
+fn launch_electron() -> Option<std::process::Child> {
+    let app_dir = find_app_dir()?;
+    let (exe, dist) = find_electron(&app_dir)?;
+    std::process::Command::new(exe)
+        .current_dir(&dist)
+        .creation_flags(0x08000000)
+        .arg("--no-sandbox")
+        .arg(app_dir.join("main.js"))
+        .spawn()
+        .ok()
+}
+
+#[cfg(not(windows))]
+fn launch_electron() -> Option<std::process::Child> { None }
 
 pub fn run_overlay() {
     #[cfg(windows)] {
@@ -83,9 +106,14 @@ pub fn run_overlay() {
     let c2 = cache.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_millis(500));
-        if let Ok(mut c) = c2.lock() { *c = Some(collect_json()); }
+        let data = collect_json();
+        if let Ok(mut c) = c2.lock() { *c = Some(data); }
     });
     let _port = start_http_server(cache);
-    if !launch_electron() { eprintln!("hwmon: Electron binary not found"); }
-    loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
+    if let Some(mut child) = launch_electron() {
+        let _ = child.wait();
+    } else {
+        eprintln!("hwmon: Electron binary not found");
+        loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
+    }
 }

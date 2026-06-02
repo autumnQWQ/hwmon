@@ -52,7 +52,11 @@
       "Bash(\"F:/hwmon/target/release/hwmon.exe\" --gui)",
       "Bash(\"F:/hwmon/target/release/hwmon.exe\" -j)",
       "Bash(echo \"Post-kill electron count: $\\(ps -W)",
-      "Bash(target/release/hwmon.exe -j)"
+      "Bash(target/release/hwmon.exe -j)",
+      "Bash(start \"C:\\\\Windows\\\\System32\\\\WindowsSandbox.exe\" \"F:/hwmon/hwmon-test.wsb\")",
+      "Bash(tasklist /fi \"imagename eq WindowsSandbox.exe\" /fo csv)",
+      "Bash(wmic process *)",
+      "Bash(powershell *)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 target/
 hwmon-electron/node_modules/
 hwmon-electron/dist/
-dist-win/hwmon/hwmon-electron/electron/
+hwmon-electron/electron/
 *.tar.gz
 *.zip
 *.pkg

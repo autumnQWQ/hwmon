@@ -1,0 +1,11 @@
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>F:\hwmon\dist-win\hwmon</HostFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>explorer C:\Users\WDAGUtilityAccount\Desktop\hwmon</Command>
+  </LogonCommand>
+</Configuration>

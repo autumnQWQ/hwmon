@@ -10,17 +10,6 @@ use types::SystemInfo;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    // Single instance via named mutex — std::process::Command variant for port binding
-    // Just check if our port is already in use
-    #[cfg(windows)]
-    {
-        use std::net::TcpStream;
-        if TcpStream::connect("127.0.0.1:18789").is_ok() {
-            // Another hwmon is already running
-            return;
-        }
-    }
-
     let args: Vec<String> = std::env::args().collect();
 
     if args.iter().any(|a| a == "--help" || a == "-h") {
