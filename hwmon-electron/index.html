@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Cascadia Code','Consolas',monospace;font-size:13px;color:#fff;overflow:hidden;user-select:none;background:rgba(0,0,0,0)}
+#bg{background:rgba(0,0,0,0.5);border-radius:8px;padding:10px 15px;margin:0;position:relative;min-width:200px}
+.line{white-space:nowrap;line-height:1.6}
+.l{display:inline-block;width:34px;color:#888}
+.t{color:#ff6b6b}.u{color:#69db7c}.f{color:#74c0fc}.r{color:#fcc419}.p{color:#da77f2}
+#tb{position:absolute;bottom:0px;right:6px;display:flex;gap:3px;z-index:10}
+#tb span{cursor:pointer;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:3px;color:#666;font-size:14px}
+#tb span:hover{background:rgba(255,255,255,0.1);color:#aaa}
+body.drag{-webkit-app-region:drag}
+body.no-drag{-webkit-app-region:no-drag}
+#tb{-webkit-app-region:no-drag}
+</style>
+</head>
+<body class="no-drag">
+<div id="bg">
+<div id="c">
+<div class="line"><span class="l">CPU</span><span class="f">--</span> <span class="u">--</span> <span class="t">--</span></div>
+<div class="line"><span class="l">GPU</span><span class="f">--</span> <span class="u">--</span> <span class="t">--</span> <span class="r">--</span></div>
+<div class="line"><span class="l">RAM</span><span class="r">--</span>/<span class="r">--</span>GB <span class="u">--</span></div>
+<div class="line"><span class="l">FPS</span><span class="p">--</span></div>
+</div>
+<div id="tb"><span id="lock-btn">🔒</span><span id="close-btn">✕</span></div>
+</div>
+<script>
+const { ipcRenderer } = require('electron');
+let locked = true;
+
+function render(d) {
+  if (!d) return;
+  const c = d.cpu || {};
+  const g = d.gpu || {};
+  const m = d.memory || {};
+  document.getElementById('c').innerHTML = `
+    <div class="line"><span class="l">CPU</span><span class="f">${c.freq||'--'}MHz</span> <span class="u">${(c.util?.toFixed(0)||'--')}%</span> <span class="t">${c.temp != null ? c.temp.toFixed(0)+'°C' : '--°C'}</span></div>
+    <div class="line"><span class="l">GPU</span><span class="f">${g.freq||'--'}MHz</span> <span class="u">${(g.util?.toFixed(0)||'--')}%</span> <span class="t">${g.temp != null ? g.temp.toFixed(0)+'°C' : '--°C'}</span> <span class="r">${(g.mem_used?.toFixed(1)||'--')}GB</span></div>
+    <div class="line"><span class="l">RAM</span><span class="r">${(m.used?.toFixed(1)||'--')}</span>/<span class="r">${(m.total?.toFixed(1)||'--')}</span>GB <span class="u">${(m.pct?.toFixed(0)||'--')}%</span></div>
+    <div class="line"><span class="l">FPS</span><span class="p">${d.fps||'--'} FPS</span></div>`;
+
+  // UI 文本/className 与本地 locked 状态同步（服务器不覆盖用户操作）
+  document.getElementById('lock-btn').textContent = locked ? '🔒' : '🔓';
+  document.body.className = locked ? 'no-drag' : 'drag';
+}
+
+ipcRenderer.on('hwmon-data', (e, d) => render(d));
+
+document.getElementById('lock-btn').onclick = () => {
+  locked = !locked;
+  document.getElementById('lock-btn').textContent = locked ? '🔒' : '🔓';
+  document.body.className = locked ? 'no-drag' : 'drag';
+};
+document.getElementById('close-btn').onclick = () => ipcRenderer.send('close-app');
+</script>
+</body>
+</html>

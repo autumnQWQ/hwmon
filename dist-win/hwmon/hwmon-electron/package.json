@@ -1,0 +1,13 @@
+{
+  "name": "hwmon-electron",
+  "version": "0.1.0",
+  "description": "Hardware Monitor Electron UI",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "preinstall": "cd .. && cargo build --release"
+  },
+  "devDependencies": {
+    "electron": "^42.3.0"
+  }
+}

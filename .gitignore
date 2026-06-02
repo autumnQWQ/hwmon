@@ -1,0 +1,7 @@
+target/
+hwmon-electron/node_modules/
+hwmon-electron/dist/
+*.tar.gz
+*.zip
+*.pkg
+~/
